@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth 2.1 Authorization Server - Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { background-color: #0056b3; }
+        .error { color: red; margin-bottom: 15px; }
+        .info { background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #007bff; }
+        .oauth-details { background-color: #f1f3f4; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h2>OAuth 2.1 Authorization Server</h2>
+    
+    <div class="info">
+        <strong>Application Request:</strong><br>
+        <span style="color: #007bff;">{{.ClientName}}</span> is requesting access to your account.
+    </div>
+
+    <div class="oauth-details">
+        <strong>OAuth Details:</strong><br>
+        Client ID: {{.ClientID}}<br>
+        Scope: {{.Scope}}<br>
+        Redirect URI: {{.RedirectURI}}
+    </div>
+
+    {{if .Error}}
+    <div class="error">{{.Error}}</div>
+    {{end}}
+
+    <form method="post" action="/login">
+        <input type="hidden" name="client_id" value="{{.ClientID}}">
+        <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
+        <input type="hidden" name="scope" value="{{.Scope}}">
+        <input type="hidden" name="state" value="{{.State}}">
+        <input type="hidden" name="code_challenge" value="{{.CodeChallenge}}">
+        <input type="hidden" name="code_challenge_method" value="{{.CodeChallengeMethod}}">
+        
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <button type="submit">Authorize</button>
+    </form>
+
+    <div style="margin-top: 20px; padding: 10px; background-color: #fff3cd; border-radius: 4px; font-size: 12px;">
+        <strong>Demo Accounts:</strong><br>
+        alice / password123<br>
+        bob / secret456<br>
+        carol / mypass789
+    </div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth 2.1 Demo Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .section { background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #007bff; }
+        .button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        .button:hover { background-color: #0056b3; }
+        .success { background-color: #d4edda; border-left-color: #28a745; color: #155724; }
+        .error { background-color: #f8d7da; border-left-color: #dc3545; color: #721c24; }
+        .oauth-flow { background-color: #fff3cd; border-left-color: #ffc107; color: #856404; }
+        .code-block { background-color: #f1f3f4; padding: 15px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; margin: 10px 0; }
+        .pkce-details { font-size: 12px; background-color: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>OAuth 2.1 Demo Client</h1>
+    
+    <div class="section">
+        <h2>Client Application</h2>
+        <p>This demo client will guide you through the OAuth 2.1 authorization code flow with PKCE.</p>
+        <p><strong>Client ID:</strong> demo-client</p>
+        <p><strong>Redirect URI:</strong> http://localhost:8080/callback</p>
+        <p><strong>Scope:</strong> read</p>
+    </div>
+
+    {{if .Error}}
+    <div class="section error">
+        <h3>Error</h3>
+        <p>{{.Error}}</p>
+    </div>
+    {{end}}
+
+    {{if .PKCEDetails}}
+    <div class="pkce-details">
+        <strong>PKCE Details (for learning purposes):</strong><br>
+        Code Verifier: {{.PKCEDetails.Verifier}}<br>
+        Code Challenge: {{.PKCEDetails.Challenge}}<br>
+        Challenge Method: {{.PKCEDetails.Method}}
+    </div>
+    {{end}}
+
+    {{if .AuthURL}}
+    <div class="section oauth-flow">
+        <h3>Step 1: Authorization Request</h3>
+        <p>Click the button below to start the OAuth flow. You will be redirected to the authorization server.</p>
+        <a href="{{.AuthURL}}" class="button">Start OAuth Flow</a>
+    </div>
+    {{end}}
+
+    {{if .Code}}
+    <div class="section oauth-flow">
+        <h3>Step 2: Authorization Code Received</h3>
+        <p>Authorization code received successfully!</p>
+        <div class="code-block">Authorization Code: {{.Code}}</div>
+        <a href="/exchange" class="button">Exchange Code for Token</a>
+    </div>
+    {{end}}
+
+    {{if .AccessToken}}
+    <div class="section success">
+        <h3>Step 3: Access Token Received</h3>
+        <p>Successfully exchanged authorization code for access token!</p>
+        <div class="code-block">Access Token: {{.AccessToken}}</div>
+        <a href="/resource" class="button">Access Protected Resource</a>
+        <a href="/userinfo" class="button">Get User Info</a>
+    </div>
+    {{end}}
+
+    {{if .ResourceContent}}
+    <div class="section success">
+        <h3>Step 4: Protected Resource Retrieved</h3>
+        <p>Successfully accessed protected resource using access token!</p>
+        <div class="code-block">{{.ResourceContent}}</div>
+    </div>
+    {{end}}
+
+    {{if .UserInfo}}
+    <div class="section success">
+        <h3>User Information</h3>
+        <div class="code-block">{{.UserInfo}}</div>
+    </div>
+    {{end}}
+
+    <div class="section">
+        <h3>Actions</h3>
+        <a href="/" class="button">Start New Flow</a>
+        <a href="/status" class="button">Check Status</a>
+    </div>
+
+    <div class="section">
+        <h3>OAuth 2.1 Flow Summary</h3>
+        <ol>
+            <li><strong>Authorization Request:</strong> Client redirects user to authorization server with PKCE challenge</li>
+            <li><strong>User Authentication:</strong> User logs in at authorization server</li>
+            <li><strong>Authorization Grant:</strong> Authorization server redirects back with authorization code</li>
+            <li><strong>Token Exchange:</strong> Client exchanges code for access token using PKCE verifier</li>
+            <li><strong>Resource Access:</strong> Client uses access token to access protected resources</li>
+        </ol>
+    </div>
+</body>
+</html>

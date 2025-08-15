@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "username": "alice",
+      "password": "$2a$10$Wpn9.xkns9GPBpN/HflghOBrk4CgaTn8t4u2T9YDcYLVoVsCMrpru",
+      "name": "Alice Johnson"
+    },
+    {
+      "username": "bob", 
+      "password": "$2a$10$SMAY/BsquiBvEUk9GXuqUu8qWQLpDLhqPsVmhghQRqoq5uu.MjcIe",
+      "name": "Bob Smith"
+    },
+    {
+      "username": "carol",
+      "password": "$2a$10$50kIqVDXF.qOGF2XY./xtuoNSPpdi/j6l13OvfA5JDZW01L4xbvTi",
+      "name": "Carol Williams"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+🔒 PROTECTED RESOURCE 🔒
+
+This is a protected resource that can only be accessed with a valid OAuth 2.1 access token.
+
+Resource Details:
+- Resource ID: secret-document-001
+- Classification: Demo Content
+- Created: 2024-08-15
+- Owner: OAuth Learning System
+
+Content:
+This document demonstrates successful OAuth 2.1 authorization flow completion.
+The client has successfully:
+1. Initiated authorization request with PKCE
+2. Redirected user to authorization server
+3. User authenticated with valid credentials
+4. Received authorization code
+5. Exchanged code for access token using PKCE verification
+6. Presented valid access token to resource server
+
+🎉 OAuth 2.1 Flow Complete! 🎉
+
+Additional Information:
+- This resource would typically contain sensitive user data
+- In production, implement proper access controls and audit logging
+- Consider token introspection for distributed systems
+- Always validate token scope matches requested resource
+
+Thank you for completing the OAuth 2.1 learning exercise!
