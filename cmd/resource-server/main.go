@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ResourceServerPort = ":8083"
+	ResourceServerPort = ":8082"
 	AuthServerURL      = "http://localhost:8081"
 )
 
@@ -50,7 +50,7 @@ func (rs *ResourceServer) validateToken(token string) (*oauth.AccessToken, error
 func (rs *ResourceServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		
+
 		logger.LogOAuthMessage(logger.LogEntry{
 			Timestamp:   time.Now(),
 			Direction:   logger.Incoming,
@@ -81,7 +81,7 @@ func (rs *ResourceServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		
+
 		accessToken, err := rs.validateToken(token)
 		if err != nil {
 			logger.LogError("RESOURCE-SERVER", err)
@@ -132,11 +132,11 @@ func (rs *ResourceServer) getProtectedResource(w http.ResponseWriter, r *http.Re
 
 func (rs *ResourceServer) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	userInfo := map[string]interface{}{
-		"sub":  "demo-user",
-		"name": "Demo User",
+		"sub":                "demo-user",
+		"name":               "Demo User",
 		"preferred_username": "demo",
-		"email": "demo@example.com",
-		"scope": "read",
+		"email":              "demo@example.com",
+		"scope":              "read",
 	}
 
 	logger.LogOAuthMessage(logger.LogEntry{
@@ -145,7 +145,7 @@ func (rs *ResourceServer) getUserInfo(w http.ResponseWriter, r *http.Request) {
 		Source:      "RESOURCE-SERVER",
 		Destination: "CLIENT",
 		MessageType: "User Info Response",
-		Payload: userInfo,
+		Payload:     userInfo,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -158,7 +158,7 @@ func (rs *ResourceServer) healthCheck(w http.ResponseWriter, r *http.Request) {
 		"timestamp": time.Now().Format(time.RFC3339),
 		"service":   "oauth-resource-server",
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -173,7 +173,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", resourceServer.healthCheck)
-	
+
 	r.Group(func(r chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +182,7 @@ func main() {
 				})(w, r)
 			})
 		})
-		
+
 		r.Get("/protected", resourceServer.getProtectedResource)
 		r.Get("/userinfo", resourceServer.getUserInfo)
 	})

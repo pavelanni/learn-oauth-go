@@ -268,6 +268,42 @@ func (as *AuthServer) token(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (as *AuthServer) discovery(w http.ResponseWriter, r *http.Request) {
+	metadata := map[string]interface{}{
+		"issuer":                                   "http://localhost:8081",
+		"authorization_endpoint":                   "http://localhost:8081/authorize",
+		"token_endpoint":                          "http://localhost:8081/token",
+		"scopes_supported":                        []string{"read"},
+		"response_types_supported":                []string{"code"},
+		"grant_types_supported":                   []string{"authorization_code"},
+		"code_challenge_methods_supported":        []string{"S256"},
+		"token_endpoint_auth_methods_supported":   []string{"none"},
+	}
+
+	logger.LogOAuthMessage(logger.LogEntry{
+		Timestamp:   time.Now(),
+		Direction:   logger.Incoming,
+		Source:      "CLIENT",
+		Destination: "AUTH-SERVER",
+		MessageType: "Discovery Request",
+		Payload: map[string]interface{}{
+			"endpoint": "/.well-known/oauth-authorization-server",
+		},
+	})
+
+	logger.LogOAuthMessage(logger.LogEntry{
+		Timestamp:   time.Now(),
+		Direction:   logger.Outgoing,
+		Source:      "AUTH-SERVER", 
+		Destination: "CLIENT",
+		MessageType: "Discovery Response",
+		Payload:     metadata,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metadata)
+}
+
 func main() {
 	logger.LogInfo("AUTH-SERVER", "Starting OAuth 2.1 Authorization Server on port 8081")
 
@@ -284,6 +320,7 @@ func main() {
 	r.Get("/authorize", authServer.authorize)
 	r.Post("/login", authServer.login)
 	r.Post("/token", authServer.token)
+	r.Get("/.well-known/oauth-authorization-server", authServer.discovery)
 
 	logger.LogInfo("AUTH-SERVER", "Server ready to handle OAuth requests")
 	if err := http.ListenAndServe(AuthServerPort, r); err != nil {

@@ -19,7 +19,7 @@ import (
 const (
 	ClientPort        = ":8080"
 	AuthServerURL     = "http://localhost:8081"
-	ResourceServerURL = "http://localhost:8083"
+	ResourceServerURL = "http://localhost:8082"
 	ClientID          = "demo-client"
 	RedirectURI       = "http://localhost:8080/callback"
 	Scope             = "read"
@@ -400,14 +400,14 @@ func main() {
 	r.Get("/resource", client.resource)
 	r.Get("/userinfo", client.userinfo)
 	r.Get("/status", client.status)
-	
+
 	// Handle common browser requests to avoid 404s in logs
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })
 	r.Get("/_static/*", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })
 
 	logger.LogInfo("CLIENT", "Client ready to start OAuth flow")
 	logger.LogInfo("CLIENT", "Visit http://localhost:8080 to begin")
-	
+
 	if err := http.ListenAndServe(ClientPort, r); err != nil {
 		logger.LogError("CLIENT", err)
 	}
