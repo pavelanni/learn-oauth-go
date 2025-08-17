@@ -7,15 +7,17 @@ import (
 )
 
 type Store struct {
-	codes  map[string]*AuthorizationCode
-	tokens map[string]*AccessToken
-	mu     sync.RWMutex
+	codes   map[string]*AuthorizationCode
+	tokens  map[string]*AccessToken
+	clients map[string]*RegisteredClient
+	mu      sync.RWMutex
 }
 
 func NewStore() *Store {
 	return &Store{
-		codes:  make(map[string]*AuthorizationCode),
-		tokens: make(map[string]*AccessToken),
+		codes:   make(map[string]*AuthorizationCode),
+		tokens:  make(map[string]*AccessToken),
+		clients: make(map[string]*RegisteredClient),
 	}
 }
 
@@ -67,6 +69,49 @@ func (s *Store) GetAccessToken(token string) (*AccessToken, error) {
 	}
 	
 	return accessToken, nil
+}
+
+// Client storage methods
+func (s *Store) StoreClient(client *RegisteredClient) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clients[client.ID] = client
+}
+
+func (s *Store) GetClient(clientID string) (*RegisteredClient, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	client, exists := s.clients[clientID]
+	if !exists {
+		return nil, fmt.Errorf("client not found")
+	}
+	
+	return client, nil
+}
+
+func (s *Store) IsValidClient(clientID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.clients[clientID]
+	return exists
+}
+
+func (s *Store) IsValidRedirectURI(clientID, redirectURI string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	client, exists := s.clients[clientID]
+	if !exists {
+		return false
+	}
+	
+	for _, uri := range client.RedirectURIs {
+		if uri == redirectURI {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) CleanupExpired() {

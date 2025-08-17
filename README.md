@@ -669,6 +669,88 @@ Authorization Request → Login Attempt → ERROR: Invalid credentials
 Authorization Request → Authorization Response → Token Request → ERROR: PKCE verification failed
 ```
 
+## Dynamic Client Registration (RFC 7591)
+
+This implementation now includes **Dynamic Client Registration**, a key feature required for modern OAuth clients like Claude Code.
+
+### What is Dynamic Client Registration?
+
+Dynamic Client Registration allows OAuth clients to register themselves programmatically at runtime, without requiring manual pre-configuration by the authorization server administrator.
+
+### Why is it important?
+
+- **Claude Code compatibility**: Required for Claude Code and similar tools
+- **Scalability**: No manual client configuration needed
+- **Flexibility**: Clients can register with custom redirect URIs
+- **Standards compliance**: Follows RFC 7591 specification
+
+### Using Dynamic Client Registration
+
+**Registration endpoint:**
+```http
+POST /register
+Content-Type: application/json
+
+{
+  "redirect_uris": ["https://client.example.com/callback"],
+  "client_name": "My OAuth Client",
+  "application_type": "web"
+}
+```
+
+**Response:**
+```json
+{
+  "client_id": "abc123...",
+  "client_secret": "def456...",
+  "redirect_uris": ["https://client.example.com/callback"],
+  "response_types": ["code"],
+  "grant_types": ["authorization_code"],
+  "application_type": "web",
+  "client_name": "My OAuth Client",
+  "token_endpoint_auth_method": "client_secret_post"
+}
+```
+
+### Testing Dynamic Client Registration
+
+**1. Register a new client:**
+```bash
+curl -X POST http://localhost:8081/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "redirect_uris": ["http://localhost:3000/callback"],
+    "client_name": "Test Client",
+    "application_type": "web"
+  }'
+```
+
+**2. Use the returned client_id in authorization flows:**
+The dynamically registered client can now be used exactly like the demo client for the full OAuth flow.
+
+### OAuth Discovery Enhanced
+
+The discovery endpoint now includes the registration endpoint:
+
+```bash
+curl http://localhost:8081/.well-known/oauth-authorization-server
+```
+
+Returns:
+```json
+{
+  "issuer": "http://localhost:8081",
+  "authorization_endpoint": "http://localhost:8081/authorize",
+  "token_endpoint": "http://localhost:8081/token",
+  "registration_endpoint": "http://localhost:8081/register",
+  "response_types_supported": ["code"],
+  "grant_types_supported": ["authorization_code"],
+  "code_challenge_methods_supported": ["S256"],
+  "scopes_supported": ["read"],
+  "token_endpoint_auth_methods_supported": ["none", "client_secret_post"]
+}
+```
+
 ## Learning outcomes
 
 After completing this walkthrough, you will understand:
@@ -700,6 +782,10 @@ After completing this walkthrough, you will understand:
 - Scope validation
 - Client authentication
 - Production security requirements
+- Dynamic Client Registration
+- OAuth discovery endpoints
+- Enhanced error handling
+- Client validation and redirect URI security
 
 ## API reference
 

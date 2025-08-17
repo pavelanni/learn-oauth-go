@@ -76,8 +76,15 @@ func (as *AuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if clientID != ClientID {
+	// Check if client is the demo client or a dynamically registered client
+	if clientID != ClientID && !as.store.IsValidClient(clientID) {
 		http.Error(w, "invalid_client", http.StatusBadRequest)
+		return
+	}
+
+	// Validate redirect URI for dynamically registered clients
+	if clientID != ClientID && !as.store.IsValidRedirectURI(clientID, redirectURI) {
+		http.Error(w, "invalid_redirect_uri", http.StatusBadRequest)
 		return
 	}
 
@@ -218,6 +225,12 @@ func (as *AuthServer) token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate client exists (either demo client or registered client)
+	if clientID != ClientID && !as.store.IsValidClient(clientID) {
+		http.Error(w, "invalid_client", http.StatusBadRequest)
+		return
+	}
+
 	if !oauth.VerifyPKCE(codeVerifier, authCode.CodeChallenge, authCode.CodeChallengeMethod) {
 		logger.LogError("AUTH-SERVER", fmt.Errorf("PKCE verification failed"))
 		http.Error(w, "invalid_grant", http.StatusBadRequest)
@@ -269,15 +282,16 @@ func (as *AuthServer) token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (as *AuthServer) discovery(w http.ResponseWriter, r *http.Request) {
-	metadata := map[string]interface{}{
-		"issuer":                                   "http://localhost:8081",
-		"authorization_endpoint":                   "http://localhost:8081/authorize",
-		"token_endpoint":                          "http://localhost:8081/token",
-		"scopes_supported":                        []string{"read"},
-		"response_types_supported":                []string{"code"},
-		"grant_types_supported":                   []string{"authorization_code"},
-		"code_challenge_methods_supported":        []string{"S256"},
-		"token_endpoint_auth_methods_supported":   []string{"none"},
+	metadata := oauth.DiscoveryDocument{
+		Issuer:                            "http://localhost:8081",
+		AuthorizationEndpoint:             "http://localhost:8081/authorize",
+		TokenEndpoint:                     "http://localhost:8081/token",
+		RegistrationEndpoint:              "http://localhost:8081/register",
+		ResponseTypesSupported:            []string{"code"},
+		GrantTypesSupported:               []string{"authorization_code"},
+		CodeChallengeMethodsSupported:     []string{"S256"},
+		ScopesSupported:                   []string{"read"},
+		TokenEndpointAuthMethodsSupported: []string{"none", "client_secret_post"},
 	}
 
 	logger.LogOAuthMessage(logger.LogEntry{
@@ -297,11 +311,163 @@ func (as *AuthServer) discovery(w http.ResponseWriter, r *http.Request) {
 		Source:      "AUTH-SERVER", 
 		Destination: "CLIENT",
 		MessageType: "Discovery Response",
-		Payload:     metadata,
+		Payload: map[string]interface{}{
+			"issuer":                 metadata.Issuer,
+			"authorization_endpoint": metadata.AuthorizationEndpoint,
+			"token_endpoint":         metadata.TokenEndpoint,
+			"registration_endpoint":  metadata.RegistrationEndpoint,
+			"response_types_supported": metadata.ResponseTypesSupported,
+			"grant_types_supported":    metadata.GrantTypesSupported,
+		},
 	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(metadata)
+}
+
+// Dynamic Client Registration (RFC 7591)
+func (as *AuthServer) clientRegistration(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req oauth.ClientRegistrationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.LogError("AUTH-SERVER", fmt.Errorf("invalid JSON in registration request: %w", err))
+		as.sendRegistrationError(w, "invalid_request", "Invalid JSON in request body")
+		return
+	}
+
+	logger.LogOAuthMessage(logger.LogEntry{
+		Timestamp:   time.Now(),
+		Direction:   logger.Incoming,
+		Source:      "CLIENT",
+		Destination: "AUTH-SERVER",
+		MessageType: "Client Registration Request",
+		Payload: map[string]interface{}{
+			"redirect_uris":     req.RedirectURIs,
+			"client_name":       req.ClientName,
+			"application_type":  req.ApplicationType,
+			"response_types":    req.ResponseTypes,
+			"grant_types":       req.GrantTypes,
+		},
+	})
+
+	// Validate required fields
+	if len(req.RedirectURIs) == 0 {
+		as.sendRegistrationError(w, "invalid_request", "redirect_uris is required")
+		return
+	}
+
+	// Generate client credentials
+	clientID, err := oauth.GenerateClientID()
+	if err != nil {
+		logger.LogError("AUTH-SERVER", err)
+		as.sendRegistrationError(w, "server_error", "Failed to generate client ID")
+		return
+	}
+
+	clientSecret, err := oauth.GenerateClientSecret()
+	if err != nil {
+		logger.LogError("AUTH-SERVER", err)
+		as.sendRegistrationError(w, "server_error", "Failed to generate client secret")
+		return
+	}
+
+	// Set defaults for optional fields
+	responseTypes := req.ResponseTypes
+	if len(responseTypes) == 0 {
+		responseTypes = []string{"code"}
+	}
+
+	grantTypes := req.GrantTypes
+	if len(grantTypes) == 0 {
+		grantTypes = []string{"authorization_code"}
+	}
+
+	applicationType := req.ApplicationType
+	if applicationType == "" {
+		applicationType = "web"
+	}
+
+	tokenEndpointAuthMethod := req.TokenEndpointAuthMethod
+	if tokenEndpointAuthMethod == "" {
+		tokenEndpointAuthMethod = "client_secret_post"
+	}
+
+	// Store the registered client
+	registeredClient := &oauth.RegisteredClient{
+		ID:                      clientID,
+		Secret:                  clientSecret,
+		RedirectURIs:            req.RedirectURIs,
+		ResponseTypes:           responseTypes,
+		GrantTypes:              grantTypes,
+		ApplicationType:         applicationType,
+		Name:                    req.ClientName,
+		TokenEndpointAuthMethod: tokenEndpointAuthMethod,
+		CreatedAt:               time.Now(),
+	}
+	
+	as.store.StoreClient(registeredClient)
+
+	// Create response
+	response := oauth.ClientRegistrationResponse{
+		ClientID:                clientID,
+		ClientSecret:            clientSecret,
+		RedirectURIs:            req.RedirectURIs,
+		ResponseTypes:           responseTypes,
+		GrantTypes:              grantTypes,
+		ApplicationType:         applicationType,
+		ClientName:              req.ClientName,
+		TokenEndpointAuthMethod: tokenEndpointAuthMethod,
+	}
+
+	logger.LogOAuthMessage(logger.LogEntry{
+		Timestamp:   time.Now(),
+		Direction:   logger.Outgoing,
+		Source:      "AUTH-SERVER",
+		Destination: "CLIENT",
+		MessageType: "Client Registration Response",
+		Payload: map[string]interface{}{
+			"client_id":                clientID,
+			"client_secret":            "[REDACTED]",
+			"redirect_uris":            response.RedirectURIs,
+			"response_types":           response.ResponseTypes,
+			"grant_types":              response.GrantTypes,
+			"application_type":         response.ApplicationType,
+			"client_name":              response.ClientName,
+			"token_endpoint_auth_method": response.TokenEndpointAuthMethod,
+		},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (as *AuthServer) sendRegistrationError(w http.ResponseWriter, errorCode, errorDescription string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+
+	errorResponse := oauth.ErrorResponse{
+		Error:            errorCode,
+		ErrorDescription: errorDescription,
+	}
+
+	logger.LogOAuthMessage(logger.LogEntry{
+		Timestamp:   time.Now(),
+		Direction:   logger.Outgoing,
+		Source:      "AUTH-SERVER",
+		Destination: "CLIENT",
+		MessageType: "Client Registration Error",
+		Payload: map[string]interface{}{
+			"error":             errorCode,
+			"error_description": errorDescription,
+		},
+	})
+
+	json.NewEncoder(w).Encode(errorResponse)
 }
 
 func main() {
@@ -320,6 +486,7 @@ func main() {
 	r.Get("/authorize", authServer.authorize)
 	r.Post("/login", authServer.login)
 	r.Post("/token", authServer.token)
+	r.Post("/register", authServer.clientRegistration)
 	r.Get("/.well-known/oauth-authorization-server", authServer.discovery)
 
 	logger.LogInfo("AUTH-SERVER", "Server ready to handle OAuth requests")
